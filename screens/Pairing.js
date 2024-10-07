@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { BackHandler, View, Text, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList, BackHandler } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 import { PERMISSIONS, RESULTS, requestMultiple } from 'react-native-permissions';
 import { NativeEventEmitter, NativeModules } from 'react-native';
@@ -8,17 +8,6 @@ import frame from "../assets/temp_frame.png";
 const { width, height } = Dimensions.get('window');
 const BleManagerModule = NativeModules.BleManager;
 const bleManagerEmitter = new NativeEventEmitter(BleManagerModule);
-
-/* Things to note about BLE pairing:
-The Bluetooth library you're using (react-native-ble-manager) typically handles BLE (Bluetooth Low Energy) devices,
-which may not support some classic Bluetooth devices like TWS headphones or any non-BLE devices.
-
-BLE is designed for low power consumption and is typically used for devices that need to send small amounts of data intermittently.
-Classic Bluetooth is used for devices that require continuous data streaming, such as audio devices.
-
-When you connect to a BLE device using your app, the connection might not be reflected in the phone's Bluetooth settings. 
-This is because BLE connections are managed at the application level and might not be visible in the system's Bluetooth settings.
-*/
 
 export default function Pairing({ navigation }) {
   const [connectedDevice, setConnectedDevice] = useState(null);
@@ -60,6 +49,7 @@ export default function Pairing({ navigation }) {
     };
 
     const handleBluetoothStateChange = (state) => {
+      console.log('Bluetooth state changed:', state);
       if (state === 'on') {
         setStatusMessage('Bluetooth is enabled.');
         setIsBluetoothOn(true);
@@ -72,9 +62,10 @@ export default function Pairing({ navigation }) {
     };
 
     const enableBluetooth = async () => {
-      BleManager.start({ showAlert: false });
-      bleManagerEmitter.addListener('BleManagerDidUpdateState', handleBluetoothStateChange);
-      BleManager.checkState();
+      BleManager.start({ showAlert: false }).then(() => {
+        bleManagerEmitter.addListener('BleManagerDidUpdateState', handleBluetoothStateChange);
+        BleManager.checkState();
+      });
     };
 
     const initialize = async () => {
@@ -113,7 +104,7 @@ export default function Pairing({ navigation }) {
           clearTimeout(scanTimeout);
         }
         backHandler.remove();
-        bleManagerEmitter.removeListener('BleManagerDidUpdateState', handleBluetoothStateChange);
+        bleManagerEmitter.removeEventListener('BleManagerDidUpdateState', handleBluetoothStateChange);
       };
     };
 
@@ -126,6 +117,7 @@ export default function Pairing({ navigation }) {
       if (scanTimeout) {
         clearTimeout(scanTimeout);
       }
+      bleManagerEmitter.removeEventListener('BleManagerDidUpdateState', handleBluetoothStateChange);
     };
   }, [connectedDevice]);
 
@@ -154,7 +146,7 @@ export default function Pairing({ navigation }) {
       BleManager.stopScan().then(() => {
         setStatusMessage('Scan completed.');
         setIsConnecting(false);
-        bleManagerEmitter.removeListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+        bleManagerEmitter.removeEventListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
       });
     }, 30000);
 
