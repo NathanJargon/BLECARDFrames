@@ -15,6 +15,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.synochrina.cardframes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -22,6 +23,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "devClient": {
+      "enabled": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b9d47092-a396-4ea6-b632-1f4af5344992"
+      }
+    },
+    "plugins": ["react-native-ble-plx"]
   }
 }
