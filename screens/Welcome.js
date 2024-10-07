@@ -3,6 +3,17 @@ import { View, Text, StyleSheet, Dimensions, ActivityIndicator } from 'react-nat
 
 const { width, height } = Dimensions.get('window');
 
+/* Things to note about BLE pairing:
+The Bluetooth library you're using (react-native-ble-manager) typically handles BLE (Bluetooth Low Energy) devices,
+which may not support some classic Bluetooth devices like TWS headphones or any non-BLE devices.
+
+BLE is designed for low power consumption and is typically used for devices that need to send small amounts of data intermittently.
+Classic Bluetooth is used for devices that require continuous data streaming, such as audio devices.
+
+When you connect to a BLE device using your app, the connection might not be reflected in the phone's Bluetooth settings. 
+This is because BLE connections are managed at the application level and might not be visible in the system's Bluetooth settings.
+*/
+
 export default function Welcome({ navigation }) {
   useEffect(() => {
     const timer = setTimeout(() => {

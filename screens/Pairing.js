@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList, BackHandler } from 'react-native';
+import { BackHandler, View, Text, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
 import BleManager from 'react-native-ble-manager';
 import { PERMISSIONS, RESULTS, requestMultiple } from 'react-native-permissions';
 import { NativeEventEmitter, NativeModules } from 'react-native';
+import BluetoothStateManager from 'react-native-bluetooth-state-manager';
 import frame from "../assets/temp_frame.png";
 
 const { width, height } = Dimensions.get('window');
@@ -48,24 +49,31 @@ export default function Pairing({ navigation }) {
       return true;
     };
 
-    const handleBluetoothStateChange = (state) => {
-      console.log('Bluetooth state changed:', state);
-      if (state === 'on') {
-        setStatusMessage('Bluetooth is enabled.');
-        setIsBluetoothOn(true);
-        scanAndConnect(); // Start scanning once Bluetooth is turned on
-      } else {
-        setStatusMessage('Bluetooth is off. Please enable it.');
-        setIsBluetoothOn(false);
-        setAvailableDevices([]); // Clear the list of available devices
+    const checkBluetoothState = async () => {
+      try {
+        const state = await BluetoothStateManager.getState();
+        if (state === 'PoweredOn') {
+          setIsBluetoothOn(true);
+          setStatusMessage('Bluetooth is enabled.');
+          scanAndConnect();
+        } else {
+          setIsBluetoothOn(false);
+          setStatusMessage('Bluetooth is off. Please enable it.');
+        }
+      } catch (error) {
+        console.error('Error checking Bluetooth state:', error);
+        setStatusMessage('Error checking Bluetooth state.');
       }
     };
 
     const enableBluetooth = async () => {
-      BleManager.start({ showAlert: false }).then(() => {
-        bleManagerEmitter.addListener('BleManagerDidUpdateState', handleBluetoothStateChange);
-        BleManager.checkState();
-      });
+      try {
+        await BleManager.start({ showAlert: false });
+        checkBluetoothState();
+      } catch (error) {
+        console.error('Error enabling Bluetooth:', error);
+        setStatusMessage('Error enabling Bluetooth.');
+      }
     };
 
     const initialize = async () => {
@@ -96,6 +104,17 @@ export default function Pairing({ navigation }) {
 
       const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
 
+      // Add Bluetooth state change listener
+      const bluetoothStateListener = BluetoothStateManager.onStateChange((state) => {
+        if (state === 'PoweredOn') {
+          setIsBluetoothOn(true);
+          setStatusMessage('Bluetooth is enabled.');
+        } else {
+          setIsBluetoothOn(false);
+          setStatusMessage('Bluetooth is off. Please enable it.');
+        }
+      }, true);
+
       return () => {
         if (connectedDevice) {
           BleManager.disconnect(connectedDevice.id);
@@ -104,7 +123,7 @@ export default function Pairing({ navigation }) {
           clearTimeout(scanTimeout);
         }
         backHandler.remove();
-        bleManagerEmitter.removeEventListener('BleManagerDidUpdateState', handleBluetoothStateChange);
+        bluetoothStateListener.remove(); // Remove Bluetooth state change listener
       };
     };
 
@@ -117,40 +136,53 @@ export default function Pairing({ navigation }) {
       if (scanTimeout) {
         clearTimeout(scanTimeout);
       }
-      bleManagerEmitter.removeEventListener('BleManagerDidUpdateState', handleBluetoothStateChange);
     };
   }, [connectedDevice]);
 
   const scanAndConnect = useCallback(async () => {
-    setStatusMessage('Scanning for devices...');
-    setIsConnecting(true);
-    setAvailableDevices([]); // Clear the list of available devices
-
-    BleManager.scan([], 30, true).then(() => {
-      setStatusMessage('Scanning...');
-    });
-
-    const handleDiscoverPeripheral = (device) => {
-      setAvailableDevices((prevDevices) => {
-        if (!prevDevices.some((d) => d.id === device.id)) {
-          return [...prevDevices, device];
-        }
-        return prevDevices;
-      });
-    };
-
-    bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
-
-    // Set a timeout to stop scanning after 30 seconds
-    const timeout = setTimeout(() => {
-      BleManager.stopScan().then(() => {
-        setStatusMessage('Scan completed.');
+    // Check Bluetooth state before scanning
+    try {
+      const state = await BluetoothStateManager.getState();
+      if (state !== 'PoweredOn') {
+        setStatusMessage('Bluetooth is off. Please enable it.');
         setIsConnecting(false);
-        bleManagerEmitter.removeEventListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
-      });
-    }, 30000);
+        return;
+      }
 
-    setScanTimeout(timeout);
+      setStatusMessage('Scanning for devices...');
+      setIsConnecting(true);
+      setAvailableDevices([]); // Clear the list of available devices
+
+      BleManager.scan([], 30, true).then(() => {
+        setStatusMessage('Scanning...');
+      });
+
+      const handleDiscoverPeripheral = (device) => {
+        setAvailableDevices((prevDevices) => {
+          if (!prevDevices.some((d) => d.id === device.id)) {
+            return [...prevDevices, device];
+          }
+          return prevDevices;
+        });
+      };
+
+      bleManagerEmitter.addListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+
+      // Set a timeout to stop scanning after 30 seconds
+      const timeout = setTimeout(() => {
+        BleManager.stopScan().then(() => {
+          setStatusMessage('Scan completed.');
+          setIsConnecting(false);
+          bleManagerEmitter.removeListener('BleManagerDiscoverPeripheral', handleDiscoverPeripheral);
+        });
+      }, 30000);
+
+      setScanTimeout(timeout);
+    } catch (error) {
+      console.error('Error during scan and connect:', error);
+      setStatusMessage('Error during scan and connect.');
+      setIsConnecting(false);
+    }
   }, []);
 
   const handleUseDevice = () => {
@@ -185,6 +217,7 @@ export default function Pairing({ navigation }) {
         setIsConnecting(false);
       })
       .catch((error) => {
+        console.error('Error connecting to device:', error);
         setStatusMessage('Error connecting to device.');
         setIsConnecting(false);
       });

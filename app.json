@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "CardFrames",
-    "slug": "CardFrames",
+    "slug": "cardframes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,9 +29,8 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b9d47092-a396-4ea6-b632-1f4af5344992"
+        "projectId": "f44c9c67-e8fe-40a3-9c28-58f873e847d6"
       }
-    },
-    "plugins": ["react-native-ble-plx"]
+    }
   }
 }
