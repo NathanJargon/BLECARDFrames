@@ -1,28 +1,32 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, BackHandler } from 'react-native';
-import { RNCamera } from 'react-native-camera';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { Camera, useCameraDevices } from 'react-native-vision-camera';
 
 const { width, height } = Dimensions.get('window');
 
 export default function CardAssistant({ navigation }) {
+  const devices = useCameraDevices();
+  const device = devices.back;
+
   useEffect(() => {
-    const backAction = () => {
-      navigation.navigate('Pairing');
-      return true;
+    const requestCameraPermission = async () => {
+      const permission = await Camera.requestCameraPermission();
+      if (permission === 'denied') {
+        // Handle permission denied
+      }
     };
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    requestCameraPermission();
+  }, []);
 
-    return () => backHandler.remove();
-  }, [navigation]);
+  if (device == null) return <Text>Loading...</Text>;
 
   return (
     <View style={styles.container}>
-      <RNCamera
+      <Camera
         style={styles.camera}
-        type={RNCamera.Constants.Type.back}
-        flashMode={RNCamera.Constants.FlashMode.off}
-        captureAudio={false}
+        device={device}
+        isActive={true}
       />
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button}>
